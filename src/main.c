@@ -2,8 +2,11 @@
 #include "milis.h"
 
 /*#include "delay.h"*/
-/*#include <stdio.h>*/
-/*#include "../lib/uart.c"*/
+/*#include <cstdint>*/
+
+#include <stdio.h>
+#include "../lib/uart.c"
+#include "spse_stm8.h"
 
 #define _ISOC99_SOURCE
 #define _GNU_SOURCE
@@ -32,13 +35,38 @@ int main(void)
     uint32_t time = 0;
 
     setup();
-    /*init_uart();*/
+    init_uart();
+
+    // na pinech/vstupech ADC_IN2 (PB2) a ADC_IN3 (PB3) vypneme vstupní buffer
+    ADC2_SchmittTriggerConfig(ADC2_SCHMITTTRIG_CHANNEL4, DISABLE);
+    ADC2_SchmittTriggerConfig(ADC2_SCHMITTTRIG_CHANNEL5, DISABLE);
+
+    // při inicializaci volíme frekvenci AD převodníku mezi 1-4MHz při 3.3V
+    // mezi 1-6MHz při 5V napájení
+    // nastavíme clock pro ADC (16MHz / 4 = 4MHz)
+    ADC2_PrescalerConfig(ADC2_PRESSEL_FCPU_D4);
+
+    // volíme zarovnání výsledku (typicky vpravo, jen vyjmečně je výhodné vlevo)
+    ADC2_AlignConfig(ADC2_ALIGN_RIGHT);
+
+    // nasatvíme multiplexer na některý ze vstupních kanálů
+    ADC2_Select_Channel(ADC2_CHANNEL_4);
+    // rozběhneme AD převodník
+    ADC2_Cmd(ENABLE);
+    // počkáme než se AD převodník rozběhne (~7us)
+    ADC2_Startup_Wait();
+
+    int16_t ADCx;
+    int16_t voltage;
 
     while (1) {
 
-        if (milis() - time > 333 && BTN_PUSH) {
+        if (milis() - time > 777 ) {
             LED_TOGG; 
             time = milis();
+            ADCx = ADC_get(ADC2_CHANNEL_4);
+            voltage = (uint32_t)3300 * ADCx / 1024 ;
+            printf("R=%d U=%d\n", ADCx, voltage);
         }
 
         /*LED_FLIP; */
